@@ -88,6 +88,8 @@ namespace mxl::lib
             result.lastReadTime = result.lastWriteTime;
             result.format = format;
 
+            result.sourceDelay = 0U;
+
             // Get the inode of the flow data file
             struct ::stat st;
             if (::stat(flowDataPath.string().c_str(), &st) != 0)

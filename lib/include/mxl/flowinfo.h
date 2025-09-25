@@ -41,11 +41,24 @@ extern "C"
         /** No flags defined yet. */
         uint32_t flags;
 
+        /**
+         * The maximum delay in nanoseconds this flow is expected to have at
+         * this node.
+         *
+         * This is a confguration value intended to indicate to flow readers how
+         * long they need to wait before consuming flow data, in order to avoid
+         * losing samples due to jitter.
+         *
+         * Data arriving later than this delay has to be considered lost and
+         * should be discareded by the flow writer.
+         */
+        uint64_t sourceDelay;
+
         /** The flow data inode.  this is used to detect if the flow was recreated */
         ino_t inode;
 
         /** Reserved space for future extensions.  */
-        uint8_t reserved[72];
+        uint8_t reserved[64];
     } mxlCommonFlowInfo;
 
     typedef struct mxlDiscreteFlowInfo_t
