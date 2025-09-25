@@ -32,6 +32,7 @@ target_sources(mxl
         PRIVATE
             src/flow.cpp
             src/mxl.cpp
+            src/syncobject.cpp
             src/time.cpp
             src/internal/DomainWatcher.cpp
             src/internal/Flow.cpp
