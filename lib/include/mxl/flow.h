@@ -358,6 +358,19 @@ extern "C"
     MXL_EXPORT
     mxlStatus mxlFlowWriterCommitGrain(mxlFlowWriter writer, mxlGrainInfo const* grain);
 
+
+    ///
+    /// retrieve the current range of absolute grain indexes available
+    ///
+    /// \param[in] reader flow reader to access
+    /// \param[out] oldest_index pointer to oldest valid grain
+    /// \param[out] newest_index pointer to newest valid grain
+    ///
+    /// \return A status code describing the outcome of the call.
+    ///
+    MXL_EXPORT
+    mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, std::uint64_t *oldest_index, std::uint64_t *newest_index);
+
     /**
      * Accessor for a specific set of samples across all channels ending at a
      * specific index (`count` samples up to `index`).

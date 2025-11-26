@@ -500,6 +500,58 @@ mxlStatus mxlFlowWriterCommitGrain(mxlFlowWriter writer, mxlGrainInfo const* gra
 
 extern "C"
 MXL_EXPORT
+mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, std::uint64_t *oldest_index, std::uint64_t *newest_index)
+{
+    // use flow reader to access results
+    try
+    {
+        // check args
+        if( oldest_index  == nullptr )
+        {
+            return MXL_ERR_INVALID_ARG;
+        }
+        if( newest_index == nullptr )
+        {
+            return MXL_ERR_INVALID_ARG;
+        }
+
+        if (auto const cppReader = dynamic_cast<DiscreteFlowReader*>(to_FlowReader(reader)); cppReader != nullptr)
+        {
+
+            uint64_t oldest, newest;
+            mxlStatus status = cppReader->getGrainRange(oldest, newest);
+
+
+            if( status == MXL_STATUS_OK )
+            {
+                *oldest_index = oldest;
+                *newest_index = newest;
+                return MXL_STATUS_OK;
+            }
+            else
+            {
+                return status;
+            }
+        }
+        else
+        {
+            return MXL_ERR_INVALID_FLOW_READER;
+        }
+
+    }
+    catch (std::exception const& e)
+    {
+        MXL_ERROR("Exception in flow reader GetGrainRange : {}", e.what());
+        return MXL_ERR_UNKNOWN;
+    }
+    catch (...)
+    {
+        return MXL_ERR_UNKNOWN;
+    }
+}
+
+extern "C"
+MXL_EXPORT
 mxlStatus mxlFlowReaderGetSamples(mxlFlowReader reader, uint64_t index, size_t count, uint64_t timeoutNs,
     mxlWrappedMultiBufferSlice* payloadBuffersSlices)
 {
