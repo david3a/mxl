@@ -44,6 +44,8 @@ extern "C"
         MXL_ERR_NOT_READY,
         MXL_ERR_NOT_FOUND,
         MXL_ERR_EXISTS,
+
+        MXL_ERR_GRAIN_INDEX_INVALID
     } mxlStatus;
 
     /// MXL SDK Semantic versionning structure.

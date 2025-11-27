@@ -52,6 +52,8 @@ namespace mxl::lib
         virtual mxlStatus getGrain(std::uint64_t in_index, std::uint16_t in_minValidSlices, mxlGrainInfo* out_grainInfo,
             std::uint8_t** out_payload) override;
 
+        virtual mxlStatus getGrainRange(uint64_t &oldest, uint64_t &newest);
+
     protected:
         /** \see FlowReader::isFlowValid */
         [[nodiscard]]

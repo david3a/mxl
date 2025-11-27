@@ -369,7 +369,7 @@ extern "C"
     /// \return A status code describing the outcome of the call.
     ///
     MXL_EXPORT
-    mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, std::uint64_t *oldest_index, std::uint64_t *newest_index);
+    mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, uint64_t *oldest_index, uint64_t *newest_index);
 
     /**
      * Accessor for a specific set of samples across all channels ending at a

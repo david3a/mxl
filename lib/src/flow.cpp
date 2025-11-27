@@ -500,7 +500,7 @@ mxlStatus mxlFlowWriterCommitGrain(mxlFlowWriter writer, mxlGrainInfo const* gra
 
 extern "C"
 MXL_EXPORT
-mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, std::uint64_t *oldest_index, std::uint64_t *newest_index)
+mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, uint64_t *oldest_index, uint64_t *newest_index)
 {
     // use flow reader to access results
     try
@@ -520,7 +520,6 @@ mxlStatus mxlFlowReaderGetGrainRange(mxlFlowReader reader, std::uint64_t *oldest
 
             uint64_t oldest, newest;
             mxlStatus status = cppReader->getGrainRange(oldest, newest);
-
 
             if( status == MXL_STATUS_OK )
             {

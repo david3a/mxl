@@ -9,3 +9,6 @@
 
 MXL_EXPORT
 std::ostream& operator<<(std::ostream& os, mxlFlowInfo const& obj);
+
+MXL_EXPORT
+std::ostream& operator<<(std::ostream& os, const mxlGrainInfo &gInfo);

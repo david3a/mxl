@@ -69,3 +69,21 @@ std::ostream& operator<<(std::ostream& os, mxlFlowInfo const& info)
 
     return os;
 }
+
+
+MXL_EXPORT
+std::ostream& operator<<(std::ostream& os, const mxlGrainInfo &gInfo)
+{
+    os << "- GrainInfo" << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "size", gInfo.size ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "flags", gInfo.flags ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "grain size", gInfo.grainSize ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "index", gInfo.index ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "total slices", gInfo.totalSlices ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "valid slices", gInfo.validSlices ) << '\n'
+       << '\t' << fmt::format("{: >18}: {}", "version", gInfo.version ) << '\n';
+
+    return os;
+}
+
+
