@@ -215,11 +215,6 @@ public:
                 // We are too early somehow.. retry the same grain later.
                 continue;
             }
-            if (ret == MXL_ERR_TIMEOUT)
-            {
-                // No grains available before a timeout was triggered.. most likely a problem upstream.
-                continue;
-            }
             if (ret != MXL_STATUS_OK)
             {
                 // Something  unexpected occured, not much we can do, but log and retry
@@ -341,14 +336,6 @@ public:
             }
         }
 
-        if (_flowExits)
-        {
-            if (status = mxlDestroyFlow(_instance, _config.flowID.c_str()); status != MXL_STATUS_OK)
-            {
-                MXL_ERROR("Failed to destroy flow with status '{}'", static_cast<int>(status));
-            }
-        }
-
         if (_instance != nullptr)
         {
             if (status = mxlDestroyInstance(_instance); status != MXL_STATUS_OK)
@@ -375,20 +362,17 @@ public:
         }
 
         mxlFlowConfigInfo configInfo;
-        status = mxlCreateFlow(_instance, flowDescriptor.c_str(), nullptr, &configInfo);
-        if (status != MXL_STATUS_OK)
-        {
-            MXL_ERROR("Failed to create flow with status '{}'", static_cast<int>(status));
-            return status;
-        }
-        _flowExits = true;
-
+        bool flowCreated = false;
         // Create a flow writer for the given flow id.
-        status = mxlCreateFlowWriter(_instance, _config.flowID.c_str(), "", &_writer);
+        status = mxlCreateFlowWriter(_instance, flowDescriptor.c_str(), "", &_writer, &configInfo, &flowCreated);
         if (status != MXL_STATUS_OK)
         {
             MXL_ERROR("Failed to create flow writer with status '{}'", static_cast<int>(status));
             return status;
+        }
+        if (!flowCreated)
+        {
+            MXL_WARN("Reusing existing flow");
         }
 
         mxlRegions memoryRegions;
@@ -517,8 +501,6 @@ private:
     mxlFlowWriter _writer;
     mxlFabricsTarget _target;
     mxlTargetInfo _targetInfo;
-
-    bool _flowExits{false};
 };
 
 int main(int argc, char** argv)

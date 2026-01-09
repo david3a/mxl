@@ -16,13 +16,32 @@ cmake_policy(SET CMP0135 NEW)
 
 option(MXL_ENABLE_FABRICS_OFI "Enable building the fabrics library with libfabric" OFF)
 
-set(mxl_VERSION 0.10.0)
+# Build type. Used as a build suffix or in the operating system package file name.  Currently manually set but could be automated using branch names, etc.
+# One of : dev, beta, rc, "" (empty for final releases)
+set(MXL_BUILD_TYPE "dev")
+set(MXL_BUILD_SUFFIX "-${MXL_BUILD_TYPE}")
+
+set(mxl_VERSION 1.1.0)
 
 if(DEFINED MXL_BUILD_NUMBER)
     string(APPEND mxl_VERSION ".${MXL_BUILD_NUMBER}")
 else()
     string(APPEND mxl_VERSION ".0")
 endif()
+
+find_package(Git QUIET)
+
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short=12 HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+else()
+    set(GIT_HASH "unknown")
+endif()
+
 
 option(BUILD_DOCS "Build the docs" ON)
 option(BUILD_TESTS "Build the tests" ON)
@@ -34,6 +53,38 @@ project(mxl
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+
+
+#-------------------------------------------------------------------------------
+# Determine optional IPO support and allow enabling IPO on a per target basis.
+#-------------------------------------------------------------------------------
+option(MXL_ENABLE_IPO "Enable LTO/IPO on the library targets." OFF)
+
+set(MXL_IPO_SUPPORTED OFF)
+if(MXL_ENABLE_IPO)
+    include(CheckIPOSupported)
+
+    check_ipo_supported(RESULT MXL_IPO_SUPPORTED OUTPUT output LANGUAGES C CXX)
+    if(MXL_IPO_SUPPORTED)
+        message(STATUS "Enabling LTO/IPO support.")
+    else()
+        message(WARNING "LTO/IPO is not supported: ${output}")
+    endif()
+endif()
+
+if (MXL_IPO_SUPPORTED)
+    function(mxl_enable_target_ipo target)
+        message(STATUS "Enabling LTO/IPO on target: ${target}")
+        set_target_properties(${target}
+                PROPERTIES
+                    INTERPROCEDURAL_OPTIMIZATION ON
+            )
+    endfunction()
+else ()
+    function(mxl_enable_target_ipo target)
+    endfunction()
+endif ()
+
 
 find_program(ccache_executable ccache)
 
@@ -50,14 +101,62 @@ enable_testing()
 if(APPLE)
     # Add the official GStreamer framework paths to the PKG_CONFIG_PATH
     set(ENV{PKG_CONFIG_PATH} "/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
-
-    # Configure threads
-    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-    set(CMAKE_HAVE_THREADS_LIBRARY 1)
-    set(CMAKE_USE_WIN32_THREADS_INIT 0)
-    set(CMAKE_USE_PTHREADS_INIT 1)
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
 endif()
+
+# Default build is shared libraries.
+# Use '-DBUILD_SHARED_LIBS=OFF' for static build.
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+
+# Default PIC ON for static builds.
+# Use -DMXL_ENABLE_PIC=OFF to disable PIC
+option(MXL_ENABLE_PIC "Enable PIC for static libraries" ON)
+
+# Policy: shared always PIC, static set to MXL_ENABLE_PIC.
+set(MXL_POSITION_INDEPENDENT_CODE ON)
+if(NOT BUILD_SHARED_LIBS)
+  set(MXL_POSITION_INDEPENDENT_CODE ${MXL_ENABLE_PIC})
+endif()
+
+#-------------------------------------------------------------------------------
+# Helper to conditionally add flags supported by the current compiler
+#-------------------------------------------------------------------------------
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
+function(mxl_check_and_add_flag flag)
+    string(REGEX REPLACE "^-+" "" var "${flag}")
+    string(MAKE_C_IDENTIFIER "${var}" var)
+    string(TOUPPER "${var}" var)
+
+    set(c_var "MXL_C_COMPILER_SUPPORTS_${var}")
+    set(cxx_var "MXL_CXX_COMPILER_SUPPORTS_${var}")
+
+    set(lang_list "")
+    check_c_compiler_flag("${flag}" ${c_var})
+    if (${c_var})
+        list(APPEND lang_list C)
+    endif ()
+
+    check_cxx_compiler_flag("${flag}" ${cxx_var})
+    if (${cxx_var})
+        list(APPEND lang_list CXX)
+    endif ()
+
+    list(JOIN lang_list "," lang_list_string)
+    if (NOT "${lang_list_string}" STREQUAL "")
+        add_compile_options($<$<COMPILE_LANGUAGE:${lang_list_string}>:${flag}>)
+    endif ()
+endfunction()
+
+#-------------------------------------------------------------------------------
+# Globally add warning flags
+#-------------------------------------------------------------------------------
+mxl_check_and_add_flag("-Wall")
+mxl_check_and_add_flag("-Wextra")
+mxl_check_and_add_flag("-Wunreachable-code")
+mxl_check_and_add_flag("-Wpedantic")
+mxl_check_and_add_flag("-Wno-c++23-attribute-extensions")
+
 
 add_subdirectory(lib)
 add_subdirectory(utils)
@@ -102,6 +201,13 @@ if(BUILD_DOCS)
     endif()
 endif()
 
+# CPack Configuration
+set(CPACK_PACKAGE_NAME "dmfmxl-dev")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION "EBU DMF Media eXchange Layer SDK development package")
+set(CPACK_PACKAGE_VENDOR "EBU.ch")
+set(CPACK_PACKAGE_CONTACT "DMF MXL <mxl@ebu.ch>")
+
 if(EXISTS "/etc/os-release")
     file(STRINGS "/etc/os-release" OS_RELEASE_CONTENTS)
 
@@ -116,7 +222,7 @@ if(EXISTS "/etc/os-release")
 
     if(DISTRO_ID MATCHES "ubuntu|debian")
         set(IS_DEBIAN TRUE)
-    elseif(DISTRO_ID MATCHES "amzn|rocky|rhel|fedora|centos")
+    elseif(DISTRO_ID MATCHES "alma|amzn|rocky|rhel|fedora|centos")
         set(IS_RPM TRUE)
     endif()
 
@@ -125,21 +231,46 @@ if(EXISTS "/etc/os-release")
         set(CPACK_DEBIAN_PACKAGE_DEPENDS "gstreamer1.0-x, gstreamer1.0-plugins-good")
         set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
         set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+
+        find_program(DPKG_EXECUTABLE dpkg)
+
+        if(DPKG_EXECUTABLE)
+            execute_process(
+                COMMAND ${DPKG_EXECUTABLE} --print-architecture
+                OUTPUT_VARIABLE DEB_ARCH
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+        else()
+            message(FATAL_ERROR "dpkg not found — cannot determine Debian architecture")
+        endif()
+        set(CPACK_PACKAGE_ARCHITECTURE "${DEB_ARCH}")
+        set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}~${MXL_BUILD_TYPE}+g${GIT_HASH}-1_${CPACK_PACKAGE_ARCHITECTURE}")
+
     elseif(IS_RPM)
         set(CPACK_GENERATOR "RPM")
+        set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
+        set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
+        # Let RPM auto-detect arch (x86_64, aarch64, etc.)
+        #unset(CPACK_RPM_PACKAGE_ARCHITECTURE)
+        set(CPACK_RPM_PACKAGE_AUTOREQPROV ON)
 
         # Not adding gstreamer as a dependency since some rpm based platforms do not provide the required packages (amazon linux 2023)
         # set(CPACK_RPM_PACKAGE_REQUIRES "")
+
+        string(TOLOWER "${MXL_BUILD_TYPE}" _bt)
+        set(_rpm_release "1")
+
+        if(_bt STREQUAL "")
+            # final release
+            set(_rpm_release "1")
+        else()
+            set(_rpm_release "0.1.${_bt}.g${GIT_HASH}")
+        endif()
+        set(CPACK_RPM_PACKAGE_RELEASE "${_rpm_release}%{?dist}")
+        set(CPACK_RPM_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${_rpm_release}.${CMAKE_SYSTEM_PROCESSOR}.rpm")
+
     endif()
 endif()
-
-# CPack Configuration
-set(CPACK_PACKAGE_NAME "dmfmxl-dev")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_PACKAGE_DESCRIPTION "EBU DMF Media eXchange Layer SDK development package")
-set(CPACK_PACKAGE_VENDOR "EBU.ch")
-set(CPACK_PACKAGE_CONTACT "DMF MXL <mxl@ebu.ch>")
-set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")
 
 # Include CPack
 include(CPack)

@@ -17,49 +17,6 @@ using namespace mxl::lib;
 
 extern "C"
 MXL_EXPORT
-mxlStatus mxlCreateFlow(mxlInstance instance, char const* flowDef, char const* options, mxlFlowConfigInfo* info)
-{
-    try
-    {
-        if (flowDef != nullptr)
-        {
-            if (auto const cppInstance = to_Instance(instance); cppInstance != nullptr)
-            {
-                auto const flowData = cppInstance->createFlow(flowDef, options ? options : "");
-                *info = flowData->flowInfo()->config;
-                return MXL_STATUS_OK;
-            }
-        }
-        return MXL_ERR_INVALID_ARG;
-    }
-    catch (std::filesystem::filesystem_error const& e)
-    {
-        MXL_ERROR("Failed to create flow : {}", e.what());
-        auto const code = e.code();
-        if ((code == std::errc::permission_denied) || (code == std::errc::operation_not_permitted) || (code == std::errc::read_only_file_system))
-        {
-            MXL_ERROR("Filesystem permission/access error: {}", code.message());
-            return MXL_ERR_PERMISSION_DENIED;
-        }
-        else
-        {
-            MXL_ERROR("Filesystem error: {}", code.message());
-            return MXL_ERR_UNKNOWN;
-        }
-    }
-    catch (std::exception const& e)
-    {
-        MXL_ERROR("Failed to create flow : {}", e.what());
-    }
-    catch (...)
-    {
-        MXL_ERROR("Failed to create flow : {}", "An unknown error occured.");
-    }
-    return MXL_ERR_UNKNOWN;
-}
-
-extern "C"
-MXL_EXPORT
 mxlStatus mxlIsFlowActive(mxlInstance instance, char const* flowId, bool* isActive)
 {
     try
@@ -106,38 +63,6 @@ mxlStatus mxlIsFlowActive(mxlInstance instance, char const* flowId, bool* isActi
     catch (...)
     {
         MXL_ERROR("Failed to check if flow is active : {}", "An unknown error occured.");
-    }
-    return MXL_ERR_UNKNOWN;
-}
-
-extern "C"
-MXL_EXPORT
-mxlStatus mxlDestroyFlow(mxlInstance instance, char const* flowId)
-{
-    try
-    {
-        if (auto const cppInstance = to_Instance(instance); cppInstance != nullptr)
-        {
-            if (flowId != nullptr)
-            {
-                auto const id = uuids::uuid::from_string(flowId);
-                if (id.has_value())
-                {
-                    auto const found = cppInstance->deleteFlow(*id);
-                    return (found) ? MXL_STATUS_OK : MXL_ERR_FLOW_NOT_FOUND;
-                }
-            }
-        }
-
-        return MXL_ERR_INVALID_ARG;
-    }
-    catch (std::exception const& e)
-    {
-        MXL_ERROR("Failed to destroy flow : {}", e.what());
-    }
-    catch (...)
-    {
-        MXL_ERROR("Failed to destroy flow : {}", "An unknown error occured.");
     }
     return MXL_ERR_UNKNOWN;
 }
@@ -236,49 +161,97 @@ mxlStatus mxlReleaseFlowReader(mxlInstance instance, mxlFlowReader reader)
 
 extern "C"
 MXL_EXPORT
-mxlStatus mxlCreateFlowWriter(mxlInstance instance, char const* flowId, char const* /*options */, mxlFlowWriter* writer)
+mxlStatus mxlCreateFlowWriter(mxlInstance instance, char const* flowDef, char const* options, mxlFlowWriter* writer, mxlFlowConfigInfo* configInfo,
+    bool* created)
 {
+    if ((instance == nullptr) || (flowDef == nullptr) || (writer == nullptr))
+    {
+        return MXL_ERR_INVALID_ARG;
+    }
+
+    auto flowData = std::unique_ptr<FlowData>{};
+    auto cppInstance = to_Instance(instance);
+
+    if (cppInstance == nullptr)
+    {
+        return MXL_ERR_INVALID_ARG;
+    }
+
     try
     {
-        if (writer != nullptr)
+        static_assert(std::is_trivially_copy_assignable_v<mxlFlowConfigInfo>, "The type mxlFlowConfigInfo must be trivially copy assignable.");
+        static_assert(std::is_nothrow_copy_assignable_v<mxlFlowConfigInfo>, "Copying mxlFlowConfigInfo cannot throw.");
+
+        auto [flowConfigInfo, flowWriter, flowCreated] = cppInstance->createFlowWriter(flowDef,
+            (options == nullptr) ? std::nullopt : std::make_optional(options));
+
+        *writer = reinterpret_cast<mxlFlowWriter>(flowWriter);
+
+        if (configInfo != nullptr)
         {
-            if (auto const cppInstance = to_Instance(instance); cppInstance != nullptr)
-            {
-                if ((flowId != nullptr) && uuids::uuid::is_valid_uuid(flowId))
-                {
-                    *writer = reinterpret_cast<mxlFlowWriter>(cppInstance->getFlowWriter(flowId));
-                    return MXL_STATUS_OK;
-                }
-            }
+            *configInfo = flowConfigInfo;
         }
-        return MXL_ERR_INVALID_ARG;
+        if (created != nullptr)
+        {
+            *created = flowCreated;
+        }
+    }
+    catch (std::filesystem::filesystem_error const& e)
+    {
+        MXL_ERROR("Failed to create flow writer: {}", e.what());
+        auto const code = e.code();
+        if ((code == std::errc::permission_denied) || (code == std::errc::operation_not_permitted) || (code == std::errc::read_only_file_system))
+        {
+            return MXL_ERR_PERMISSION_DENIED;
+        }
+        else
+        {
+            MXL_ERROR("Filesystem error: {}", code.message());
+            return MXL_ERR_UNKNOWN;
+        }
+    }
+    catch (std::exception const& e)
+    {
+        MXL_ERROR("Failed to create flow : {}", e.what());
+        return MXL_ERR_UNKNOWN;
     }
     catch (...)
     {
         return MXL_ERR_UNKNOWN;
     }
+
+    return MXL_STATUS_OK;
 }
 
 extern "C"
 MXL_EXPORT
 mxlStatus mxlReleaseFlowWriter(mxlInstance instance, mxlFlowWriter writer)
 {
-    try
+    if ((instance == nullptr) || (writer == nullptr))
     {
-        auto const cppInstance = to_Instance(instance);
-        auto const cppWriter = to_FlowWriter(writer);
-        if ((cppInstance != nullptr) && (cppWriter != nullptr))
-        {
-            cppInstance->releaseWriter(cppWriter);
-            return MXL_STATUS_OK;
-        }
-
         return MXL_ERR_INVALID_ARG;
     }
-    catch (...)
+
+    auto err = MXL_STATUS_OK;
+    auto const cppInstance = to_Instance(instance);
+    auto const cppWriter = to_FlowWriter(writer);
+
+    if ((cppInstance == nullptr) || (cppWriter == nullptr))
     {
+        return MXL_ERR_INVALID_ARG;
+    }
+
+    try
+    {
+        cppInstance->releaseWriter(cppWriter);
+    }
+    catch (std::exception const& ex)
+    {
+        MXL_ERROR("Failed to release writer: {}", ex.what());
         return MXL_ERR_UNKNOWN;
     }
+
+    return err;
 }
 
 extern "C"

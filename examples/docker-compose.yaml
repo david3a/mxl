@@ -9,10 +9,11 @@ services:
       - type: bind
         source: /dev/shm
         target: /dev/shm
-    restart: "no"
+    restart: no
 
   writer-media-function:
     image: mxl-writer
+    profiles: [test-source]
     depends_on:
       - init
     build:
@@ -23,7 +24,35 @@ services:
       - type: bind
         source: /dev/shm/mxl
         target: /domain
-        
+
+  writer-looper-video-media-function:
+    image: mxl-writer-video-looper
+    profiles: [looping-file-source]
+    depends_on:
+      - init
+    build:
+      context: ..
+      dockerfile: examples/Dockerfile.writer.video.loop.txt
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /dev/shm/mxl
+        target: /domain
+
+  writer-looper-audio-media-function:
+    image: mxl-writer-audio-looper
+    profiles: [looping-file-source]
+    depends_on:
+      - init
+    build:
+      context: ..
+      dockerfile: examples/Dockerfile.writer.audio.loop.txt
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /dev/shm/mxl
+        target: /domain
+
   reader-media-function:
     image: mxl-reader
     depends_on:

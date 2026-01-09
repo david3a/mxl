@@ -20,7 +20,7 @@
 namespace mxl::lib
 {
     MXL_EXPORT
-    SharedMemoryBase::SharedMemoryBase(char const* path, AccessMode mode, std::size_t payloadSize)
+    SharedMemoryBase::SharedMemoryBase(char const* path, AccessMode mode, std::size_t payloadSize, LockMode lockMode)
         : SharedMemoryBase{}
     {
         constexpr auto const OMODE_CREATE = O_EXCL | O_CREAT | O_RDWR | O_CLOEXEC;
@@ -30,11 +30,11 @@ namespace mxl::lib
         if ((mode == AccessMode::CREATE_READ_WRITE) && ((_fd = ::open(path, OMODE_CREATE, 0664)) != -1))
         {
             // Ensure the file is large enough to hold the shared data
-            if (::ftruncate(_fd, payloadSize) == -1)
+            if (auto error = ::posix_fallocate(_fd, 0, payloadSize); error != 0)
             {
                 // No need to close _fd, as the destructor *will* be called,
                 // because we delegated to the default constructor.
-                throw std::system_error(errno, std::generic_category(), "Could not resize shared memory segment.");
+                throw std::system_error(error, std::generic_category(), "Could not resize shared memory segment.");
             }
             _mode = AccessMode::CREATE_READ_WRITE;
         }
@@ -49,15 +49,27 @@ namespace mxl::lib
 
         if (mode != AccessMode::READ_ONLY)
         {
-            // Try to obtain a shared lock on the the file descriptor
-            // This is useful to detect if ringbufers and flows are 'stale' (if the writer processes are still using it)
-            if (::flock(_fd, LOCK_SH | LOCK_NB) == -1)
-            {
-                [[maybe_unused]]
-                auto const errorNumber = errno;
+            auto lockFlags = LOCK_NB;
 
-                MXL_WARN("Failed to aquire a shared advisory lock on file: {}, {}", path, std::strerror(errorNumber));
+            if (lockMode == LockMode::Exclusive)
+            {
+                lockFlags |= LOCK_EX;
+                _lockType = LockType::Exclusive;
             }
+            else
+            {
+                lockFlags |= LOCK_SH;
+                _lockType = LockType::Shared;
+            }
+
+            if (::flock(_fd, lockFlags) == -1)
+            {
+                throw std::system_error{errno, std::system_category(), fmt::format("Failed to lock shared memory segment.")};
+            }
+        }
+        else
+        {
+            _lockType = LockType::None;
         }
 
         if (struct stat statBuf; ::fstat(_fd, &statBuf) != -1)
@@ -113,5 +125,36 @@ namespace mxl::lib
         {
             MXL_ERROR("Failed to update file times");
         }
+    }
+
+    bool SharedMemoryBase::makeExclusive()
+    {
+        if (_lockType == LockType::Exclusive)
+        {
+            // This is a no-op
+            return true;
+        }
+
+        // Can only upgrade a shared lock
+        if (_lockType != LockType::Shared)
+        {
+            throw std::runtime_error("Cannot upgrade the lock of a shared memory object that is read-only or invalid");
+        }
+
+        if (::flock(_fd, LOCK_EX | LOCK_NB) < 0)
+        {
+            auto const error = errno;
+            switch (error)
+            {
+                case EWOULDBLOCK:
+                    // Another process (or this process on another fd) is still holding a shared lock on the file
+                    return false;
+                case EBADF: throw std::runtime_error("Tried to upgrade a lock of an invalid shared memory segment");
+                default:    throw std::system_error(error, std::system_category(), fmt::format("Failed to upgrade lock of shared memory file"));
+            }
+        }
+
+        _lockType = LockType::Exclusive;
+        return true;
     }
 }

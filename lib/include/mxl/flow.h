@@ -139,22 +139,29 @@ extern "C"
     typedef struct mxlFlowWriter_t* mxlFlowWriter;
 
     /**
-     * Create a flow using a json flow definition
-     *
+     * Attempt to create a flow writer for a given flow definition. If the flow does not exist already, it is created and 'created' will be set to
+     * true. If the flow exists, it will be opened and 'created' will be set to false. If the flow exists already it is not guaranteed that the flow
+     * definition of the existing flow is exactly equal to the flow definition supplied in flowDef. The definition of the existing flow can be
+     * retrieved using mxlGetFlowDef().
      * \param[in] instance The mxl instance created using mxlCreateInstance
-     * \param[in] flowDef A flow definition in the NMOS Flow json format.
-     *     The flow ID is read from the <id> field of this json object.
-     * \param[in] options Additional options (undefined).
-     *     \todo Specify and used the additional options.
-     * \param[out] info A pointer to an mxlFlowConfigInfo structure.
-     *     If not the nullptr, this structure will be updated with the flow
-     *     information after the flow is created.
+     * \param[in] flowDef The flow definition from which a flow should be created if there is not already a flow with the same flow id.
+     * \param[in] options (optional) Additional options, can be NULL
+     * \param[out] writer A pointer to a memory location where the created flow writer will be written.
+     * \param[out] configInfo (optional) Used to return information about the opened flow. Can be NULL.
+     * \param[out] created (optional) If not NULL, will be set to true if a new flow was created, false if an existing flow was opened.
      */
     MXL_EXPORT
-    mxlStatus mxlCreateFlow(mxlInstance instance, char const* flowDef, char const* options, mxlFlowConfigInfo* info);
+    mxlStatus mxlCreateFlowWriter(mxlInstance instance, char const* flowDef, char const* options, mxlFlowWriter* writer,
+        mxlFlowConfigInfo* configInfo, bool* created);
 
     MXL_EXPORT
-    mxlStatus mxlDestroyFlow(mxlInstance instance, char const* flowId);
+    mxlStatus mxlReleaseFlowWriter(mxlInstance instance, mxlFlowWriter writer);
+
+    MXL_EXPORT
+    mxlStatus mxlCreateFlowReader(mxlInstance instance, char const* flowId, char const* options, mxlFlowReader* reader);
+
+    MXL_EXPORT
+    mxlStatus mxlReleaseFlowReader(mxlInstance instance, mxlFlowReader reader);
 
     /**
      * Verify if a flow has an active writer or not
@@ -185,18 +192,6 @@ extern "C"
      */
     MXL_EXPORT
     mxlStatus mxlGetFlowDef(mxlInstance instance, char const* flowId, char* buffer, size_t* bufferSize);
-
-    MXL_EXPORT
-    mxlStatus mxlCreateFlowReader(mxlInstance instance, char const* flowId, char const* options, mxlFlowReader* reader);
-
-    MXL_EXPORT
-    mxlStatus mxlReleaseFlowReader(mxlInstance instance, mxlFlowReader reader);
-
-    MXL_EXPORT
-    mxlStatus mxlCreateFlowWriter(mxlInstance instance, char const* flowId, char const* options, mxlFlowWriter* writer);
-
-    MXL_EXPORT
-    mxlStatus mxlReleaseFlowWriter(mxlInstance instance, mxlFlowWriter writer);
 
     /**
      * Get a copy of the header of a Flow

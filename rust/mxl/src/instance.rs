@@ -11,7 +11,7 @@ use crate::{Error, FlowConfigInfo, FlowReader, FlowWriter, Result, api::MxlApiHa
 /// itself.
 pub(crate) struct InstanceContext {
     pub(crate) api: MxlApiHandle,
-    pub(crate) instance: mxl_sys::mxlInstance,
+    pub(crate) instance: mxl_sys::Instance,
 }
 
 // Allow sharing the context across threads and tasks freely.
@@ -46,7 +46,7 @@ pub(crate) fn create_flow_reader(
 ) -> Result<FlowReader> {
     let flow_id = CString::new(flow_id)?;
     let options = CString::new("")?;
-    let mut reader: mxl_sys::mxlFlowReader = std::ptr::null_mut();
+    let mut reader: mxl_sys::FlowReader = std::ptr::null_mut();
     unsafe {
         Error::from_status(context.api.create_flow_reader(
             context.instance,
@@ -86,58 +86,41 @@ impl MxlInstance {
         create_flow_reader(&self.context, flow_id)
     }
 
-    pub fn create_flow_writer(&self, flow_id: &str) -> Result<FlowWriter> {
-        let uuid = uuid::Uuid::parse_str(flow_id)
-            .map_err(|_| Error::Other("Invalid flow ID format.".to_string()))?;
-        let flow_id = CString::new(flow_id)?;
-        let options = CString::new("")?;
-        let mut writer: mxl_sys::mxlFlowWriter = std::ptr::null_mut();
+    pub fn create_flow_writer(
+        &self,
+        flow_def: &str,
+        options: Option<&str>,
+    ) -> Result<(FlowWriter, FlowConfigInfo, bool)> {
+        let flow_def = CString::new(flow_def)?;
+        let options = options.map(CString::new).transpose()?;
+        let mut writer: mxl_sys::FlowWriter = std::ptr::null_mut();
+        let mut info_unsafe = std::mem::MaybeUninit::<mxl_sys::FlowConfigInfo>::uninit();
+        let mut was_created = false;
         unsafe {
             Error::from_status(self.context.api.create_flow_writer(
                 self.context.instance,
-                flow_id.as_ptr(),
-                options.as_ptr(),
+                flow_def.as_ptr(),
+                options.map(|cs| cs.as_ptr()).unwrap_or(std::ptr::null()),
                 &mut writer,
+                info_unsafe.as_mut_ptr(),
+                &mut was_created,
             ))?;
         }
         if writer.is_null() {
             return Err(Error::Other("Failed to create flow writer.".to_string()));
         }
-        Ok(FlowWriter::new(self.context.clone(), writer, uuid))
-    }
 
-    /// For now, we provide direct access to the MXL API for creating and
-    /// destroying flows. Maybe it would be worth to provide RAII wrapper...
-    /// Instead? As well?
-    pub fn create_flow(&self, flow_def: &str, options: Option<&str>) -> Result<FlowConfigInfo> {
-        let flow_def = CString::new(flow_def)?;
-        let options = CString::new(options.unwrap_or(""))?;
-        let mut info = std::mem::MaybeUninit::<mxl_sys::mxlFlowConfigInfo>::uninit();
+        let info = unsafe { info_unsafe.assume_init() };
 
-        unsafe {
-            Error::from_status(self.context.api.create_flow(
-                self.context.instance,
-                flow_def.as_ptr(),
-                options.as_ptr(),
-                info.as_mut_ptr(),
-            ))?;
-        }
-
-        let info = unsafe { info.assume_init() };
-        Ok(FlowConfigInfo { value: info })
-    }
-
-    /// See `create_flow` for more info.
-    pub fn destroy_flow(&self, flow_id: &str) -> Result<()> {
-        let flow_id = CString::new(flow_id)?;
-        unsafe {
-            Error::from_status(
-                self.context
-                    .api
-                    .destroy_flow(self.context.instance, flow_id.as_ptr()),
-            )?;
-        }
-        Ok(())
+        Ok((
+            FlowWriter::new(
+                self.context.clone(),
+                writer,
+                uuid::Uuid::from_bytes(info.common.id),
+            ),
+            FlowConfigInfo { value: info },
+            was_created,
+        ))
     }
 
     pub fn get_flow_def(&self, flow_id: &str) -> Result<String> {
@@ -178,14 +161,14 @@ impl MxlInstance {
             .map_err(|_| Error::Other("Invalid UTF-8 in flow definition".to_string()))
     }
 
-    pub fn get_current_index(&self, rational: &mxl_sys::mxlRational) -> u64 {
+    pub fn get_current_index(&self, rational: &mxl_sys::Rational) -> u64 {
         unsafe { self.context.api.get_current_index(rational) }
     }
 
     pub fn get_duration_until_index(
         &self,
         index: u64,
-        rate: &mxl_sys::mxlRational,
+        rate: &mxl_sys::Rational,
     ) -> Result<std::time::Duration> {
         let duration_ns = unsafe { self.context.api.get_ns_until_index(index, rate) };
         if duration_ns == u64::MAX {
@@ -199,7 +182,7 @@ impl MxlInstance {
     }
 
     /// TODO: Make timestamp a strong type.
-    pub fn timestamp_to_index(&self, timestamp: u64, rate: &mxl_sys::mxlRational) -> Result<u64> {
+    pub fn timestamp_to_index(&self, timestamp: u64, rate: &mxl_sys::Rational) -> Result<u64> {
         let index = unsafe { self.context.api.timestamp_to_index(rate, timestamp) };
         if index == u64::MAX {
             Err(Error::Other(format!(
@@ -211,7 +194,7 @@ impl MxlInstance {
         }
     }
 
-    pub fn index_to_timestamp(&self, index: u64, rate: &mxl_sys::mxlRational) -> Result<u64> {
+    pub fn index_to_timestamp(&self, index: u64, rate: &mxl_sys::Rational) -> Result<u64> {
         let timestamp = unsafe { self.context.api.index_to_timestamp(rate, index) };
         if timestamp == u64::MAX {
             Err(Error::Other(format!(

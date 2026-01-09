@@ -13,36 +13,28 @@ TEST_CASE_PERSISTENT_FIXTURE(mxl::tests::mxlDomainFixture, "Flow readers / write
     auto instance = mxlCreateInstance(domain.string().c_str(), opts);
     REQUIRE(instance != nullptr);
 
-    auto flowDef = mxl::tests::readFile("data/audio_flow.json");
+    mxlFlowWriter audioWriter;
+    mxlFlowWriter videoWriter;
+    mxlFlowWriter metaWriter;
     mxlFlowConfigInfo configInfo;
-    REQUIRE(mxlCreateFlow(instance, flowDef.c_str(), opts, &configInfo) == MXL_STATUS_OK);
+    bool flowWasCreated;
+    auto flowDef = mxl::tests::readFile("data/audio_flow.json");
+    REQUIRE(mxlCreateFlowWriter(instance, flowDef.c_str(), opts, &audioWriter, &configInfo, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE(flowWasCreated);
     auto const audioFlowId = uuids::to_string(configInfo.common.id);
     flowDef = mxl::tests::readFile("data/v210_flow.json");
-    REQUIRE(mxlCreateFlow(instance, flowDef.c_str(), opts, &configInfo) == MXL_STATUS_OK);
+    REQUIRE(mxlCreateFlowWriter(instance, flowDef.c_str(), opts, &videoWriter, &configInfo, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE(flowWasCreated);
     auto const videoFlowId = uuids::to_string(configInfo.common.id);
-
     flowDef = mxl::tests::readFile("data/data_flow.json");
-    REQUIRE(mxlCreateFlow(instance, flowDef.c_str(), opts, &configInfo) == MXL_STATUS_OK);
+    REQUIRE(mxlCreateFlowWriter(instance, flowDef.c_str(), opts, &metaWriter, &configInfo, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE(flowWasCreated);
     auto const metaFlowId = uuids::to_string(configInfo.common.id);
 
     REQUIRE(audioFlowId != videoFlowId);
     REQUIRE(audioFlowId != metaFlowId);
     REQUIRE(videoFlowId != metaFlowId);
 
-    mxlFlowWriter audioWriter;
-    REQUIRE(mxlCreateFlowWriter(instance, audioFlowId.c_str(), "", &audioWriter) == MXL_STATUS_OK);
-    REQUIRE(audioWriter != nullptr);
-    mxlFlowWriter audioWriter2;
-    REQUIRE(mxlCreateFlowWriter(instance, audioFlowId.c_str(), "", &audioWriter2) == MXL_STATUS_OK);
-    REQUIRE(audioWriter2 != nullptr);
-    mxlFlowWriter videoWriter;
-    REQUIRE(mxlCreateFlowWriter(instance, videoFlowId.c_str(), "", &videoWriter) == MXL_STATUS_OK);
-    REQUIRE(videoWriter != nullptr);
-    mxlFlowWriter metaWriter;
-    REQUIRE(mxlCreateFlowWriter(instance, metaFlowId.c_str(), "", &metaWriter) == MXL_STATUS_OK);
-    REQUIRE(metaWriter != nullptr);
-
-    REQUIRE(audioWriter == audioWriter2);
     REQUIRE(audioWriter != videoWriter);
     REQUIRE(audioWriter != metaWriter);
     REQUIRE(videoWriter != metaWriter);
@@ -75,13 +67,68 @@ TEST_CASE_PERSISTENT_FIXTURE(mxl::tests::mxlDomainFixture, "Flow readers / write
     REQUIRE(mxlReleaseFlowReader(instance, metaReader) == MXL_STATUS_OK);
 
     REQUIRE(mxlReleaseFlowWriter(instance, audioWriter) == MXL_STATUS_OK);
-    REQUIRE(mxlReleaseFlowWriter(instance, audioWriter2) == MXL_STATUS_OK);
     REQUIRE(mxlReleaseFlowWriter(instance, videoWriter) == MXL_STATUS_OK);
     REQUIRE(mxlReleaseFlowWriter(instance, metaWriter) == MXL_STATUS_OK);
 
-    REQUIRE(mxlDestroyFlow(instance, metaFlowId.c_str()) == MXL_STATUS_OK);
-    REQUIRE(mxlDestroyFlow(instance, videoFlowId.c_str()) == MXL_STATUS_OK);
-    REQUIRE(mxlDestroyFlow(instance, audioFlowId.c_str()) == MXL_STATUS_OK);
-
     REQUIRE(mxlDestroyInstance(instance) == MXL_STATUS_OK);
+}
+
+TEST_CASE_PERSISTENT_FIXTURE(mxl::tests::mxlDomainFixture, "Flow deletion on writer release", "[instance]")
+{
+    auto instanceA = mxlCreateInstance(domain.string().c_str(), nullptr);
+    auto instanceB = mxlCreateInstance(domain.string().c_str(), nullptr);
+
+    mxlFlowWriter writerA = nullptr;
+    mxlFlowWriter writerB = nullptr;
+    mxlFlowConfigInfo flowConfig;
+    bool flowWasCreated = false;
+
+    auto flowDef = mxl::tests::readFile("data/v210_flow.json");
+    REQUIRE(mxlCreateFlowWriter(instanceA, flowDef.c_str(), nullptr, &writerA, &flowConfig, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE(flowWasCreated);
+    REQUIRE(mxlCreateFlowWriter(instanceB, flowDef.c_str(), nullptr, &writerB, &flowConfig, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE_FALSE(flowWasCreated);
+
+    auto id = uuids::to_string(flowConfig.common.id);
+
+    // The flow directory should exists after the flow has been created
+    REQUIRE(flowDirectoryExists(id));
+
+    // The flow directory should still exists after the first writer has been released
+    mxlReleaseFlowWriter(instanceA, writerA);
+    REQUIRE(flowDirectoryExists(id));
+
+    // The flow directory should have been removed after the second writer has been released
+    mxlReleaseFlowWriter(instanceB, writerB);
+    REQUIRE_FALSE(flowDirectoryExists(id));
+
+    REQUIRE(mxlDestroyInstance(instanceA) == MXL_STATUS_OK);
+    REQUIRE(mxlDestroyInstance(instanceB) == MXL_STATUS_OK);
+}
+
+TEST_CASE_PERSISTENT_FIXTURE(mxl::tests::mxlDomainFixture, "Flow deletion on instance destruction", "[instance]")
+{
+    auto instanceA = mxlCreateInstance(domain.string().c_str(), nullptr);
+    auto instanceB = mxlCreateInstance(domain.string().c_str(), nullptr);
+
+    mxlFlowWriter writerA = nullptr;
+    mxlFlowWriter writerB = nullptr;
+    mxlFlowConfigInfo flowConfig;
+    bool flowWasCreated = false;
+
+    auto flowDef = mxl::tests::readFile("data/v210_flow.json");
+    REQUIRE(mxlCreateFlowWriter(instanceA, flowDef.c_str(), nullptr, &writerA, &flowConfig, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE(flowWasCreated);
+    REQUIRE(mxlCreateFlowWriter(instanceB, flowDef.c_str(), nullptr, &writerB, &flowConfig, &flowWasCreated) == MXL_STATUS_OK);
+    REQUIRE_FALSE(flowWasCreated);
+
+    auto id = uuids::to_string(flowConfig.common.id);
+
+    REQUIRE(flowDirectoryExists(id));
+
+    mxlDestroyInstance(instanceA);
+    REQUIRE(flowDirectoryExists(id));
+
+    mxlDestroyInstance(instanceB);
+    REQUIRE_FALSE(flowDirectoryExists(id));
 }

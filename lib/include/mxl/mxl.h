@@ -55,6 +55,7 @@ extern "C"
         uint16_t minor;
         uint16_t bugfix;
         uint16_t build;
+        char const* full; /* owned by the library */
     } mxlVersionType;
 
     ///

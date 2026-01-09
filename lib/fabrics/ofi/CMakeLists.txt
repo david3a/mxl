@@ -44,19 +44,22 @@ target_link_libraries(mxl-fabrics-objects
     )
 set_target_properties(mxl-fabrics-objects
         PROPERTIES
-            POSITION_INDEPENDENT_CODE ON
+            POSITION_INDEPENDENT_CODE ${MXL_POSITION_INDEPENDENT_CODE}
             C_EXTENSIONS              OFF
             CXX_EXTENSIONS            OFF
     )
 
-add_library(mxl-fabrics SHARED)
+# Enable LTO/IPO on target if enabled and supported
+mxl_enable_target_ipo(mxl-fabrics-objects)
+
+add_library(mxl-fabrics)
 target_link_libraries(mxl-fabrics
         PRIVATE
             mxl-fabrics-objects
     )
 set_target_properties(mxl-fabrics-objects
         PROPERTIES
-            POSITION_INDEPENDENT_CODE ON
+            POSITION_INDEPENDENT_CODE ${MXL_POSITION_INDEPENDENT_CODE}
             VISIBILITY_INLINES_HIDDEN ON
             C_VISIBILITY_PRESET       hidden
             CXX_VISIBILITY_PRESET     hidden
@@ -76,6 +79,9 @@ target_link_libraries(mxl-fabrics
             mxl-fabrics-headers
             PkgConfig::libfabric
     )
+
+# Enable LTO/IPO on target if enabled and supported
+mxl_enable_target_ipo(mxl-fabrics)
 
 add_library(${PROJECT_NAME}::mxl-fabrics ALIAS mxl-fabrics)
 

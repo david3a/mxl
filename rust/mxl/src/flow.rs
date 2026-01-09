@@ -14,7 +14,6 @@ pub enum DataFormat {
     Video,
     Audio,
     Data,
-    Mux,
 }
 
 impl From<u32> for DataFormat {
@@ -24,7 +23,6 @@ impl From<u32> for DataFormat {
             mxl_sys::MXL_DATA_FORMAT_VIDEO => DataFormat::Video,
             mxl_sys::MXL_DATA_FORMAT_AUDIO => DataFormat::Audio,
             mxl_sys::MXL_DATA_FORMAT_DATA => DataFormat::Data,
-            mxl_sys::MXL_DATA_FORMAT_MUX => DataFormat::Mux,
             _ => DataFormat::Unspecified,
         }
     }
@@ -41,11 +39,11 @@ pub struct FlowInfo {
 }
 
 pub struct FlowConfigInfo {
-    pub(crate) value: mxl_sys::mxlFlowConfigInfo,
+    pub(crate) value: mxl_sys::FlowConfigInfo,
 }
 
 impl FlowConfigInfo {
-    pub fn discrete(&self) -> Result<&mxl_sys::mxlDiscreteFlowConfigInfo> {
+    pub fn discrete(&self) -> Result<&mxl_sys::DiscreteFlowConfigInfo> {
         if !is_discrete_data_format(self.value.common.format) {
             return Err(Error::Other(format!(
                 "Flow format is {}, video or data required.",
@@ -55,7 +53,7 @@ impl FlowConfigInfo {
         Ok(unsafe { &self.value.__bindgen_anon_1.discrete })
     }
 
-    pub fn continuous(&self) -> Result<&mxl_sys::mxlContinuousFlowConfigInfo> {
+    pub fn continuous(&self) -> Result<&mxl_sys::ContinuousFlowConfigInfo> {
         if is_discrete_data_format(self.value.common.format) {
             return Err(Error::Other(format!(
                 "Flow format is {}, audio required.",
@@ -74,7 +72,7 @@ impl FlowConfigInfo {
     }
 }
 
-pub struct CommonFlowConfigInfo<'a>(&'a mxl_sys::mxlCommonFlowConfigInfo);
+pub struct CommonFlowConfigInfo<'a>(&'a mxl_sys::CommonFlowConfigInfo);
 
 impl CommonFlowConfigInfo<'_> {
     pub fn id(&self) -> Uuid {
@@ -89,11 +87,11 @@ impl CommonFlowConfigInfo<'_> {
         is_discrete_data_format(self.0.format)
     }
 
-    pub fn grain_or_sample_rate(&self) -> mxl_sys::mxlRational {
+    pub fn grain_or_sample_rate(&self) -> mxl_sys::Rational {
         self.0.grainRate
     }
 
-    pub fn grain_rate(&self) -> Result<mxl_sys::mxlRational> {
+    pub fn grain_rate(&self) -> Result<mxl_sys::Rational> {
         let data_format = self.data_format();
         if data_format != DataFormat::Video && data_format != DataFormat::Data {
             return Err(Error::Other(format!(
@@ -104,7 +102,7 @@ impl CommonFlowConfigInfo<'_> {
         Ok(self.0.grainRate)
     }
 
-    pub fn sample_rate(&self) -> Result<mxl_sys::mxlRational> {
+    pub fn sample_rate(&self) -> Result<mxl_sys::Rational> {
         let data_format = self.data_format();
         if data_format != DataFormat::Audio {
             return Err(Error::Other(format!(
@@ -133,7 +131,7 @@ impl CommonFlowConfigInfo<'_> {
 }
 
 pub struct FlowRuntimeInfo {
-    pub(crate) value: mxl_sys::mxlFlowRuntimeInfo,
+    pub(crate) value: mxl_sys::FlowRuntimeInfo,
 }
 
 impl FlowRuntimeInfo {

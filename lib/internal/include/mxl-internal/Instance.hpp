@@ -11,9 +11,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <uuid.h>
 #include <mxl/mxl.h>
 #include <mxl/platform.h>
+#include "mxl-internal/FlowOptionsParser.hpp"
+#include "mxl-internal/FlowParser.hpp"
 #include "DomainWatcher.hpp"
 #include "FlowIoFactory.hpp"
 #include "FlowManager.hpp"
@@ -43,21 +46,12 @@ namespace mxl::lib
         Instance& operator=(Instance const&) = delete;
 
         ///
-        /// Create a flow
         ///
         /// \param[in] flowDef The json flow definition according to the NMOS Flow Resource json schema
         /// \param[in] options Additional options for flow creation
-        /// \return The created flow resources in shared memory
-        /// \throw std::runtime_error On any error (parse exception, shared memory conflicts, etc)
-        ///
-        std::unique_ptr<FlowData> createFlow(std::string const& flowDef, std::string const& options = {});
+        std::tuple<mxlFlowConfigInfo, FlowWriter*, bool> createFlowWriter(std::string const& flowDef, std::optional<std::string> options = {});
 
-        /// Delete a flow by id
-        ///
-        /// \param[in] flowId The flow id
-        /// \return false if the flow was not found.
-        bool deleteFlow(uuids::uuid const& flowId);
-
+    public:
         ///
         /// See details in FlowManager::getFlowDef.
         ///
@@ -82,16 +76,7 @@ namespace mxl::lib
         ///
         void releaseReader(FlowReader* reader);
 
-        ///
-        /// Create a FlowWriter or obtain an additional reference to a
-        /// previously created FlowWriter.
-        /// \param[in] flowId The id of the flow to obtain a reader for
-        /// \return A pointer to the created flow reader.
-        /// \note Please note that each successful call to this method must be
-        ///     paired with a corresponding call to releaseWriter().
-        ///
-        FlowWriter* getFlowWriter(std::string const& flowId);
-
+    public:
         ///
         /// Release a reference to a FlowWriter in order to ultimately free all
         /// resources associated with it, once the last reference is dropped.
@@ -144,6 +129,11 @@ namespace mxl::lib
         };
 
     private:
+        std::pair<std::unique_ptr<FlowData>, bool> createOrOpenDiscreteFlowData(std::string const& flowDef, FlowParser const&,
+            FlowOptionsParser const&);
+        std::pair<std::unique_ptr<FlowData>, bool> createOrOpenContinuousFlowData(std::string const& flowDef, FlowParser const&,
+            FlowOptionsParser const&);
+
         void fileChangedCallback(uuids::uuid const& flowId, WatcherType type);
 
         /// Parses the options json string (if non empty) and merges it with the optional

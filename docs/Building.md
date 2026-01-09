@@ -13,10 +13,11 @@ This is the preferred option for development on WSL2 or native linux desktop. Th
    - On Ubuntu, this would be: `sudo apt install docker.io`
 4. Install docker buildx.
    - On Ubuntu, this would be: `sudo apt install docker-buildx`
-5. Install the [NVIDIA Container Runtime](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-6. Open the MXL source code folder using VSCode. In wsl2 this can be done by launching `code <mxl_directory>`
-   - NOTE: If not running under WSL2, remove the 2 mount points defined in the devcontainer.json you intend to use for development.  For example, if you intend to use the Ubuntu 24.04 devcontainer, edit the .devcontainer/ubuntu24/devcontainer.json file and remove the content of the "mounts" array.  These mount points are only needed for X/WAYLAND support in WSL2.  Their presence will prevent the devcontainer to load correctly when running on a native Linux system.
-7. VSCode will detect that this folder contains a devcontainer definition. It will prompt you with a dialog "Reopen in dev container". Click this dialog. If the dialog does not appear, you can invoke the command: `CTRL-SHIFT-P -> Dev Containers : Reopen in container`
+5. Open the MXL source code folder using VSCode. 
+   - In wsl2 this can be done by launching `code <mxl_directory>`
+   - **NOTE:** If not running under WSL2, remove the 2 mount points defined in the devcontainer.json you intend to use for development.  
+   - For example, if you intend to use the Ubuntu 24.04 devcontainer, edit the .devcontainer/ubuntu24/devcontainer.json file and remove the content of the "mounts" array. These mount points are only needed for X/WAYLAND support in WSL2.  Their presence will prevent the devcontainer to load correctly when running on a native Linux system.
+6. VSCode will detect that this folder contains a devcontainer definition. It will prompt you with a dialog "Reopen in dev container". Click this dialog. If the dialog does not appear, you can invoke the command: `CTRL-SHIFT-P -> Dev Containers : Reopen in container`
 
 ## Option 2: CMake with presets
 
@@ -53,6 +54,24 @@ cmake .. --preset Linux-Clang-Debug
 # Build everything
 cmake --build build/Linux-Clang-Debug --target all
 ```
+
+## Static build notes
+
+By default, the CMake presets build MXL as shared libraries. To build
+MXL as static libraries instead, use the CMake option
+`-DBUILD_SHARED_LIBS=OFF`.
+
+For example:
+
+```
+mkdir build
+cd build
+cmake .. --preset Linux-GCC-Debug -DBUILD_SHARED_LIBS=OFF
+cmake --build build/Linux-GCC-Debug --target all
+```
+
+PIC is enabled by default and can be disabled with
+`-DMXL_ENABLE_PIC=OFF`.
 
 ## macOS notes
 
