@@ -10,3 +10,4 @@ CMakeUserPresets.json
 .idea
 .vscode
 vcpkg/
+vcpkg
