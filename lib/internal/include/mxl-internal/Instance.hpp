@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <atomic>
 #include <filesystem>
+#include <forward_list>
 #include <limits>
 #include <map>
 #include <memory>
@@ -20,6 +21,7 @@
 #include "DomainWatcher.hpp"
 #include "FlowIoFactory.hpp"
 #include "FlowManager.hpp"
+#include "FlowSynchronizationGroup.hpp"
 
 namespace mxl::lib
 {
@@ -34,8 +36,9 @@ namespace mxl::lib
         /// \param[in] mxlDomain The directory where the shared memory files will be created
         /// \param[in] options Additional options. \todo Not implemented yet.
         /// \param[in] flowIoFactory A factory used to create flow readers for flows of different types.
-        ///
-        Instance(std::filesystem::path const& mxlDomain, std::string const& options, std::unique_ptr<FlowIoFactory>&& flowIoFactory);
+        /// \param[in] watcher A DomainWatcher that is shared with the flowIoFactory
+        Instance(std::filesystem::path const& mxlDomain, std::string const& options, std::unique_ptr<FlowIoFactory>&& flowIoFactory,
+            DomainWatcher::ptr watcher);
 
         /// Dtor. Release all readers and writers.
         ~Instance();
@@ -100,6 +103,23 @@ namespace mxl::lib
         /// \return The path to the MXL domain of this instance
         std::string getDomain() const;
 
+        ///
+        /// Create a flow synchronization group.
+        /// \return A pointer to the created flow synchronization group.
+        /// \note Please note that each successful call to this method must be
+        ///     paired with a corresponding call to releaseFlowSynchronizationGroup().
+        ///
+        FlowSynchronizationGroup* createFlowSynchronizationGroup();
+
+        ///
+        /// Release a reference to a flow synchronization group in order to free all
+        /// resources associated with it.
+        ///
+        /// \param[in] group a pointer to a flow synchronization group
+        ///     previously obtained by a call to createFlowSynchronizationGroup().
+        ///
+        void releaseFlowSynchronizationGroup(FlowSynchronizationGroup const* group);
+
     private:
         template<typename T>
         class RefCounted
@@ -134,8 +154,6 @@ namespace mxl::lib
         std::pair<std::unique_ptr<FlowData>, bool> createOrOpenContinuousFlowData(std::string const& flowDef, FlowParser const&,
             FlowOptionsParser const&);
 
-        void fileChangedCallback(uuids::uuid const& flowId, WatcherType type);
-
         /// Parses the options json string (if non empty) and merges it with the optional
         /// domain-wide options (if defined in the domain).
         /// Values defined at the instance level will override the domain-wide value.
@@ -158,6 +176,9 @@ namespace mxl::lib
         /// Protects the maps
         std::mutex _mutex;
 
+        /// The set of active flow synchronization groups
+        std::forward_list<FlowSynchronizationGroup> _syncGroups;
+
         /// For future use.
         std::string _options;
 
@@ -172,11 +193,14 @@ namespace mxl::lib
     /// Utility function to convert from a C mxlInstance handle to a C++ Instance class
     Instance* to_Instance(mxlInstance instance) noexcept;
 
-    /// Utility function to convert from a C mxlFlowReader handle to a C++ FlowReaders instance.
+    /// Utility function to convert from a C mxlFlowReader handle to a C++ FlowReader instance.
     FlowReader* to_FlowReader(mxlFlowReader reader) noexcept;
 
     /// Utility function to convert from a C mxlFlowWriter handle to a C++ FlowWriter instance.
     FlowWriter* to_FlowWriter(mxlFlowWriter writer) noexcept;
+
+    /// Utility function to convert from a C mxlFlowSynchronizationGroup handle to a C++ FlowSynchronizationGroup instance.
+    FlowSynchronizationGroup* to_FlowSynchronizationGroup(mxlFlowSynchronizationGroup group) noexcept;
 
     /**************************************************************************/
     /* Inline implementation.                                                 */
@@ -232,6 +256,11 @@ namespace mxl::lib
     inline FlowWriter* to_FlowWriter(mxlFlowWriter writer) noexcept
     {
         return reinterpret_cast<FlowWriter*>(writer);
+    }
+
+    inline FlowSynchronizationGroup* to_FlowSynchronizationGroup(mxlFlowSynchronizationGroup group) noexcept
+    {
+        return reinterpret_cast<FlowSynchronizationGroup*>(group);
     }
 
 } // namespace mxl::lib
