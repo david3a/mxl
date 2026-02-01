@@ -128,7 +128,6 @@ namespace mxl::lib
 
     }
 
-    mxlStatus PosixDiscreteFlowReader::getGrain(std::uint64_t in_index, std::uint16_t in_minValidSlices, std::uint64_t in_timeoutNs,
     mxlStatus PosixDiscreteFlowReader::waitForGrain(std::uint64_t in_index, std::uint16_t in_minValidSlices, Timepoint in_deadline) const
     {
         auto result = MXL_ERR_UNKNOWN;
