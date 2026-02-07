@@ -1,159 +1,171 @@
 {
-    "version": 3,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 23,
-        "patch": 0
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "generator": "Ninja",
+      "warnings": {
+        "dev": false
+      },
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_COLOR_DIAGNOSTICS": "ON"
+      }
     },
-    "configurePresets": [
-        {
-            "name": "base",
-            "hidden": true,
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "installDir": "${sourceDir}/install/${presetName}",
-            "toolchainFile": "~/vcpkg/scripts/buildsystems/vcpkg.cmake",
-            "generator": "Ninja",
-            "warnings": {
-                "dev": false
-            },
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_COLOR_DIAGNOSTICS": "ON"
-            }
-        },
-        {
-            "name": "linux",
-            "hidden": true,
-            "inherits": "base",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            },
-            "vendor": {
-                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
-                    "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
-                    "copySourcesOptions": {
-                        "exclusionList": [
-                            ".vs",
-                            ".vscode",
-                            ".git",
-                            ".cache",
-                            "build",
-                            "install",
-                            "out"
-                        ]
-                    }
-                }
-            }
-        },
-        {
-            "name": "darwin",
-            "hidden": true,
-            "inherits": "base",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Darwin"
-            },
-            "cacheVariables": {
-                "VCPKG_TARGET_TRIPLET": "arm64-osx"
-            },
-            "vendor": {
-                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
-                    "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
-                    "copySourcesOptions": {
-                        "exclusionList": [
-                            ".vs",
-                            ".vscode",
-                            ".git",
-                            ".cache",
-                            "build",
-                            "install",
-                            "out"
-                        ]
-                    }
-                }
-            }
-        },
-        {
-            "name": "gcc",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
-            }
-        },
-        {
-            "name": "clang",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_LINKER_TYPE": "LLD"
-            }
-        },
-        {
-            "name": "debug",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "release",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "Linux-GCC-Debug",
-            "inherits": [
-                "linux",
-                "gcc",
-                "debug"
+    {
+      "name": "linux",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+          "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
+          "copySourcesOptions": {
+            "exclusionList": [
+              ".vs",
+              ".vscode",
+              ".git",
+              ".cache",
+              "build",
+              "install",
+              "out"
             ]
-        },
-        {
-            "name": "Linux-GCC-Release",
-            "inherits": [
-                "linux",
-                "gcc",
-                "release"
+          }
+        }
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "darwin",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "arm64-osx"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+          "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
+          "copySourcesOptions": {
+            "exclusionList": [
+              ".vs",
+              ".vscode",
+              ".git",
+              ".cache",
+              "build",
+              "install",
+              "out"
             ]
-        },
-        {
-            "name": "Linux-Clang-Debug",
-            "inherits": [
-                "linux",
-                "clang",
-                "debug"
-            ]
-        },
-        {
-            "name": "Linux-Clang-Release",
-            "inherits": [
-                "linux",
-                "clang",
-                "release"
-            ]
-        },
-        {
-            "name": "Darwin-Clang-Debug",
-            "inherits": [
-                "darwin",
-                "clang",
-                "debug"
-            ]
-        },
-        {
-            "name": "Darwin-Clang-Release",
-            "inherits": [
-                "darwin",
-                "clang",
-                "release"
-            ]
-}
-    ]
+          }
+        }
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "gcc",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "clang",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_LINKER_TYPE": "LLD"
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "debug",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      },
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Linux-GCC-Debug",
+      "inherits": [
+        "linux",
+        "gcc",
+        "debug"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Linux-GCC-Release",
+      "inherits": [
+        "linux",
+        "gcc",
+        "release"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Linux-Clang-Debug",
+      "inherits": [
+        "linux",
+        "clang",
+        "debug"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Linux-Clang-Release",
+      "inherits": [
+        "linux",
+        "clang",
+        "release"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Darwin-Clang-Debug",
+      "inherits": [
+        "darwin",
+        "clang",
+        "debug"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    },
+    {
+      "name": "Darwin-Clang-Release",
+      "inherits": [
+        "darwin",
+        "clang",
+        "release"
+      ],
+      "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    }
+  ]
 }
