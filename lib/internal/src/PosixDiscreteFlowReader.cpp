@@ -13,7 +13,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <uuid.h>
-#include <iostream>
 #include <sys/stat.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
@@ -73,46 +72,6 @@ namespace mxl::lib
     mxlFlowRuntimeInfo PosixDiscreteFlowReader::getFlowRuntimeInfo() const
     {
         return getFlowData().flowInfo()->runtime;
-    }
-
-    mxlStatus PosixDiscreteFlowReader::getGrainRange(uint64_t &oldest, uint64_t &newest)
-    {
-        if (_flowData)
-        {
-            auto const flowInfo = _flowData->flowInfo();
-
-            // get the oldest index first, do we have anyhting
-            uint64_t latest_index = flowInfo->runtime.headIndex;
-            uint64_t grain_count = flowInfo->config.discrete.grainCount;
-            uint64_t oldest_index = latest_index - grain_count + 1;
-
-            if( latest_index >= grain_count )
-            {
-                // check each grain from here
-                for( uint64_t  i = 0; i < grain_count; i++ )
-                {
-                    // get grain info and check its valid
-                    uint64_t absolute_index = oldest_index + i;
-
-                    auto const grain = _flowData->grainAt(absolute_index%grain_count);
-
-                    // does grain have expected abolute index
-                    if(( grain->header.info.index == absolute_index ))
-                    {
-                        // update values for return
-                        oldest_index = oldest_index;
-                        newest = absolute_index;
-                    }
-                }
-
-                // no, we have already got the range so we stop looking, assume we are valid
-                return MXL_STATUS_OK;
-            }
-
-        }
-
-        return MXL_ERR_FLOW_NOT_FOUND;
-
     }
 
     mxlStatus PosixDiscreteFlowReader::waitForGrain(std::uint64_t in_index, std::uint16_t in_minValidSlices, Timepoint in_deadline) const

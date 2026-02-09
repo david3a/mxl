@@ -110,7 +110,6 @@ const char * mxlStatus_to_string(mxlStatus status)
         case MXL_ERR_TIMEOUT: return "MXL_ERR_TIMEOUT";
         case MXL_ERR_INVALID_ARG: return "MXL_ERR_INVALID_ARG";
         case MXL_ERR_CONFLICT: return "MXL_ERR_CONFLICT";
-        case MXL_ERR_GRAIN_INDEX_INVALID: return "MXL_ERR_GRAIN_INDEX_INVALID";
 
         default: return "Unknown mxlStatus code";
     }
